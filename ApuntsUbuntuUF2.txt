@@ -1,0 +1,411 @@
+Apunts Ubuntu UF2
+------------------
+
+Ip màquina virtual: 10.150.16.158
+
+	Instal·lació glashfish
+	~~~~~~~~~~~~~~~~~~~~~~
+		
+		1. add-apt-repository ppa:webupd8team/java (afegir java als repositoris).
+		2. apt-get update
+		3. apt-get install oracle-java8-installer (Ok y Si)
+		4. https://download.java.net/glassfish
+			4.1 release
+			4.2 descargar glassfish-5.0.zip
+			4.3 copiar el zip en /opt
+			4.4 mirar version java -> javac -version
+			4.5 Descomprimir .zip -> (desde alumne) sudo unzip glashfish-5.0.zip
+			4.6 Entrem a glasshfish/bin
+			4.7 sudo ./asadmin
+			4.8 start-domain nom_domini
+			4.9 Al navegador -> localhost:4848
+			
+			Comandes:
+			· sudo ./asadmin
+			
+			· start-domain (iniciar el domini per defecte)
+			· start-domain nomDomini (iniciar domini concret)
+			· stop-domain (para el domini)
+			· stop-domain nomDomini(para el domini)
+			
+			· start-database(iniciar base de dades)
+			
+			· help (obre ajuda)
+			
+			· list-domains(llistar els dominis que tinc)
+			
+			· create-domain nomDomini
+			
+			· delete-domain nomDomini
+			
+			· backup-domain nomDomini (fer backup del domain)
+			
+			· change-admin-password || change-master-password 	(cambiar passwords)
+			
+			· restore-domain --filename /opt/dev/apps/Glassfish/domains/nomDomini/backups/nomArxiu
+			
+			· verify-domain-xml (verificar domain.xml file)
+			
+			. netstat -putan (veure ports)
+			
+			-> Crear domini amb un admin port diferent:
+				create-domain --adminport=9999 nomDomini
+				
+			-> Desde comandos
+			
+				./asadmin --host localhost --port 9999 deploy /carpetaOnSigui
+				
+	Pujar .war:
+	~~~~~~~~~~~
+		Netbeans->Crear arxiu .jsp->Clean & build
+		Copiar el .war a la VM
+		Desde administracio -> Applications -> Deploy... -> Ok ->  Tornes a entrar a l'aplicacio i borres tots el noms del context -> Save & surts -> Launch
+		
+	
+	Virtual Hosts + glassfish
+	~~~~~~~~~~~~~~~~~~~~~~~~~~
+	
+	1. apt-get update
+	2. apt-get install apache2
+	3. apt-get install libapache2-mod-jk
+	4. a2enmod jk
+	5. /etc/hosts/ -> ip www.front80.home i ip www.front8080.home
+	6. apt-get install php7.0
+	7. apt-get install libapache2-mod-php7.0
+	8. cat /etc/apache2/mods-available/jk.conf
+	9. cat /etc/libapache2-mod-jk/workers.properties
+	10. ./asadmin --host localhost --port 9999 create-http-listener --listenerport 8009 --listeneraddress 0.0.0.0 --defaultvs server jk-connector
+	11. ./asadmin --host localhost --port 9999 set configs.config.server-config.network-config.network-listeners.network-listener.jk-connector.jk-enabled=true
+	(./asadmin --host localhost --port 9999 set configs.config.server-config..network-config.network-listeners.network-listener.jk-connector.jk-enabled=true (?))
+	
+	12. gedit /etc/apache2/sites-available/000-default.conf
+	13. copiar el virtual host a sota 
+		a. ServerName www.front80.home
+		b. DocumentRoot /var/www/html/front80 (la carpeta s'ha de crear amb un index.html a dins)
+		
+	14. Amb workers
+		14.1 Buscar el nom del workers
+			-> gedit /etc/apache2/mods-available/jk.conf -> copiar el JkWorkersFile
+			-> gedit /etc/libapache2-mod-jk/workers.properties -> copiar el worker.nom_worker.port (d'aqui es copia lo que hi ha despres de worker. fins abans del .port EXEMPLE : worker.ajp13_worker.port --> ajp13_worker)
+		14.2 Copiar un altre virtual host en el 000-default.conf 
+			-> ServerName www.front80808.home
+			-> JkMount /* nom_worker (EXEMPLE: JkMount /* ajp13_worker)
+			-> Comentar DocumentRoot
+			
+		14.3 Reiniciar el servei apache2
+		
+		14.4 Al navegador ficar  -> www.front8080.home/nom_arxiu_pujat_anteriorment (EXEMPLE: www.front8080.home/helloWorld)
+	
+	
+	WEB.XML
+	~~~~~~~~
+	MAQUINA REAL
+	New -> web -> Standard Deployment Descriptor (web.xml)
+	New -> other -> glassfish -> Glassfish Descriptor
+	
+	web.xml -> Security -> Basic -> Realm Name: file
+	web.xml -> Security -> Security Roles -> Add...
+	web.xml -> Security -> Security Constraints -> Add Security Constraint...
+	
+			· Web Resource Collection: Add...
+				 -> URL Pattern(s): /zonaAdmin/*
+		    · Enable Authentication Constraint -> Add...
+			
+	glassfish-web.xml -> Security -> Add Security Role Mapping...
+	
+			· AdminRole -> Add Principal...
+				-> Principal Name: admin
+	
+	Build & Clean!
+	
+	MAQUINA VIRTUAL
+	
+	1. Entrar en el localhost del domini
+	2. Configurations -> server-config -> Security -> Realms -> file -> Manage Users -> USER ID: nomUsuari ficat anteriorment
+	3. Fer el deploy del .war
+	
+	
+	JavaDB
+	~~~~~~
+	1. (Al glassfish) start-database (obrira el port 1527)
+	2. apt-get install derby-tools
+	3. ij (obre un controlador)
+		3.1 connect 'jdbc:derby://localhost:1527/userauth2;user=APP;password=APP;create=TRUE;'; 
+		(
+		 screate=TRUE només la primera vegada que s'executa la comanda
+		 userauth1 es el nom de la BD
+		)
+		3.2 show tables;
+		3.3 select * from usertable (per comprobar que funciona)
+	4. localhost -> Configurations -> server-config -> Security -> Realms
+		4.1 new Realm
+			4.1.1 Name: RealmJDBC
+			4.1.2 Classname: JDBCRealm
+			4.1.3 JAAS Context: JDBCRealm
+			4.1.4 JNDI: jdbc/RealmJDBC
+			4.1.5 Password Encryption Algorithm: MD5
+			4.1.6 DatabaseUser: APP
+			4.1.7 DatabasePassword: APP
+			4.1.8 Digest Algorithm: MD5
+			4.1.9 Add Property -> DATABASE - userauth2
+			4.1.10 OK
+			
+	5. localhost -> JDBC -> JDBC Connection Pools
+		5.1 New
+			5.1.1 Pool Name: userauth1
+			5.1.2 Resource Type: javax.sql.DataSource
+			5.1.3 Database Driver Vendor: JavaDB
+			5.1.4 Next -> Additional Properties
+				5.1.4.1 Select User -> APP
+				5.1.4.2 Select DatabaseName -> userauth2
+				5.1.4.3 Select Password -> APP
+	
+	6. localhost -> JDBC -> JDBC Resources
+		6.1 New
+			6.1.1 JNDI Name: jdbc/userauth
+			6.1.2 Pool Name: userauth
+					
+	7. localhost -> Configurations -> server-config -> Security -> 	  Realms
+		7.1 Modificar el JNDI: jdbc/userauth
+		
+	8. Reiniciar el domain
+		
+	9. Netbeans->web.xml->Security->Login Configuration->Basic->Realm Name->RealmJDBC
+	
+	10. Netbeans->glassfish-web.xml->Security->AdminRole->AddPrincipal->admin
+	
+	11. Fer el deploy en el domini!
+	
+	
+	LDAP REALMS
+	-----------
+	
+	1. apt-get update
+	   apt-get install slapd ldap-utils phpldapadmin
+	   
+	2. contraseña: alumne
+	
+	3. dpkg-reconfigure slapd
+		3.1 no
+		3.2 marina.home
+		3.3 marina.home
+		3.4 alumne
+		3.5 MDB
+		3.6 yes
+		3.7 yes
+		3.8 no
+		
+	4. cat /etc/ldap/slapd.d/cn\=config/olcDatabase\=\{1\}mdb.ldif
+	
+	5. netstat -putan (si el port 389 esta, funciona)
+	
+	6. gedit /etc/phpldapadmin/config.php
+		6.1 $servers->setValue('server','base',array('dc=marina,dc=home'));
+		6.2 $servers->setValue('login','bind_id','cn=admin,dc=marina,dc=home');
+		6.3 $config->custom->appearance['hide_template_warning'] = true;
+		
+	7. Reiniciar apache2 (service apache2 restart)
+	
+	8. localhost/ldapadmin
+		8.1 crear posix group (grupo1)
+		8.2 crear user account 
+			8.2.1 GID -> grupo1
+			8.2.2 shell -> /bin/shell
+			8.2.3 contraseña -> marina (md5)
+			8.2.4 el usuario es -> mguisado
+		8.3 Default -> groupOfUniqueNames
+		    8.3.1 RDN -> cn
+			8.3.2 cn -> administradors
+			8.3.3 UniqueMember -> Usuari creat anteriorment
+			8.3.4 Create object
+		8.4 Click sobre el domionio -> Exportar -> Sub
+		
+		Si desde la maquina real fas IP/phpldapadmin pots entrari
+		
+	9. glassfish -> Configurations->server-config->Security->Realms->New realm
+		9.1 Name: RealmLDAP
+		9.2 ClassName: auth.realm.ldap.LDAPRealm
+		9.3 JAAS Context: ldapRealm (R sempre majuscula)
+		9.4 Directory: ldap://127.0.0.1:389
+		9.5 Base DN: dc=marina,dc=home
+		
+	10. Netbeans -> web.xml -> Security
+		10.1 Login Configuration -> Realm Name: RealmLDAP
+		
+	11. Netbeans -> glassfish-web.xml -> Security
+		11.1 AdminRole -> Add Group -> administradors
+		
+	11. Clean & Build!
+	
+	12. Deploy 
+
+	13. Reiniciar domain 
+	
+	14. Launch -> usuario : mguisado, password : marina
+		
+	GOSA
+   --------------------
+	1. apt-get install gosa gosa-schema ldap-utils
+	   apt-get install gosa-plugin-dns gosa-plugin-dns-schema
+	
+	2. localhost/gosa Instal·lació
+		2.1 copiar el echo que mostra en el cmd
+		2.2 next
+		2.3 Solucionar error mysql
+			2.3.1 afegir al repositori el php -> add-apt-repository ppa:ondrej/php
+			2.3.2 apt-get update
+				  apt-get install php5.6 libapache2-mod-php5.6
+			2.3.3 a2dismod php7.0
+			2.3.4 a2enmod php5.6
+			2.3.5 service apache2 restart
+			2.3.6 recargar pagina
+			2.3.7 apt-get install php5.6-mysql
+			2.3.8 service apache2 restart
+		2.4 Solucionar error mbstring
+			2.4.1 apt-get install php5.6-mbstring
+		2.5 Solucionar error ldap
+			2.5.1 apt-get install php5.6-ldap
+		2.6 Solucionar error curl
+			2.5.1 apt-get install php5.6-curl
+		2.7 Solucionar error imap
+			2.5.1 apt-get install php5.6-imap
+		2.8 next
+		2.9 cn=admin,dc=marina,dc=home -> alumne
+		2.10 recargar
+		2.11 next
+		2.12 cd /etc/ldap/schema/gosa
+		    2.12.1 ldapadd -Y EXTERNAL -H ldapi:/// -f gofax.ldif
+													   gofon.ldif
+													   gosystem.ldif
+													   goto.ldif
+													   samba3.ldif
+													   goserver.ldif
+													   gosa-samba3.ldif
+													   dnszone.ldif
+		2.13 next
+		2.14 Migrate -> Migrate
+		2.15 Create user account -> admin => alumne
+		2.16 next
+		2.17 Download configuration -> posarlo a /etc/gosa/gosa.conf
+			2.17.1 chown root:www-data gosa.conf
+			2.17.2 chmod 640 gosa.conf
+		2.18 apt-get install php5.6-xml
+		2.19 reiniciar apache2 y f5 al navegador -> admin => alumne
+		
+	3. localhost/gosa administració
+		3.1 Systems -> Actions -> Create -> ServerName
+			3.1.1 ServerName: maquina1
+			3.1.2 Base: /
+			3.1.3 IP Address: 10.150.18.158
+			3.1.4 MAC-Address: 00:0c:29:48:82:98 (ifconfig)
+		
+		3.2 Clic sobre la maquina creada
+			3.2.1 Services
+			3.2.2 Actions -> Create -> DNS Service
+			3.2.3 Add
+			3.2.4 (gosa2.png)
+			3.2.5 Save -> Save -> Apply 
+		
+		3.3 (gosa3.png)
+		3.4 ldapsearch -x -D cn=admin,dc=marina,dc=home -s sub -b dc=marina,dc=home -WEB
+		3.5 apt-get install ldap2zone
+		3.6 ldap2zone marina.home. ldap://localhost/dc=marina,dc=home 1200
+		3.7 ldap2zone marina.home. ldap://localhost/dc=marina,dc=home 1200 > /etc/bind/db.marina.home
+		3.8 /etc/bind/named.conf.default-zones afegir zona marina.home
+		3.9 /etc/resolv.conf 127.0.0.1
+	
+	CROT
+	---------------
+		1. Creació del arxiu sh gedit /etc/script.sh
+			#!/bin/bash
+			
+			echo "Exportant ldap2zone = marina.home"
+			
+			ldap2zone marina.home. ldap://localhost/dc=marina,dc=home 1200 > /etc/bind/db.marina.home
+			
+			service bind9 restart;
+			
+		2. Cambiar permisos -> chmod 777 /etc/script.sh
+		3. gedit /etc/crontab
+		4. (img crontab1.png) -> el *\45 Indica que ho farà cada 45 min
+		5. service cron restart
+		
+			
+	LDAP Fitxers
+	----------------
+		1. Exportar ldap
+		2. Copiar la ou 
+			
+			# Entry 7: ou=people,dc=marina,dc=home
+			dn: ou=people,dc=marina,dc=home
+			objectclass: organizationalUnit
+			ou: people
+			
+			(el dn(distinguished name) indica on es col·loca el element)
+			
+
+		3. gedit /etc/f1.ldif
+		4. Enganxes la OU aqui
+		5. Modificar-lo
+			
+			# Entry 7: ou=people,dc=marina,dc=home
+			dn: ou=empleats,dc=marina,dc=home
+			objectclass: organizationalUnit
+			ou: empleats
+			
+		6. ldapadd -x -W -D "cn=admin,dc=marina,dc=home" /etc/f1.ldif
+			password : alumne;
+			
+		7. localhost/phpldapadmin -> refrescar
+		
+		8. Afegir ou dins ou
+			
+			# Entry 7: ou=people,dc=marina,dc=home
+			dn: ou=projectes,ou=empleats,dc=marina,dc=home
+			objectclass: organizationalUnit
+			ou: projectes
+			
+			ldapadd -x -W -D "cn=admin,dc=marina,dc=home" /etc/f2.ldif
+			
+		9. Buscar la nova ou
+			
+			ldapsearch -x -W -D "cn=admin,dc=marina,dc=home" -b "ou=projectes,ou=empleats,dc=marina,dc=home"
+			
+		10. Eliminar la nova ou
+			
+			ldapdelete -x -W -D "cn=admin,dc=marina,dc=home" -b "ou=projectes,ou=empleats,dc=marina,dc=home"
+			
+		11. Modificar una ip
+			
+			#Entry 21: relativeDomainName=maquina2,relativeDomainName=maquina2,zoneN...
+			dn: relativeDomainName=maquina2,relativeDomainName=maquina2,zoneName=marina.
+			 home.,cn=maquina1,ou=servers,ou=systems,dc=marina,dc=home
+			changetype: modify
+			replace: arecord
+			arecord: 10.150.18.160
+			changetype: modify
+	   
+			ldapadd -x -W -D "cn=admin,dc=marina,dc=home" /etc/f3.ldif
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+	   
+		
+			
+		
+		
+		
+		
+		

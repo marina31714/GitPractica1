@@ -1,0 +1,140 @@
+Apunts UF3
+-----------
+
+	· iptables -L -> llistar
+	· iptables -t filter -L
+	· cat /proc/sys/net/ipv4/ip_forward -> Aquest document indica si ets capaç d'enrutar
+	· shutdown -h now -> apagar rapid
+	· apt-get install tracerouter serveix per mirar tots els routers que travesas
+	· apt-get install gparted
+	
+	
+	
+	-Filtres:
+	
+		· -p [tcp || udp || icmp] -> filtrar per protocol
+		· -P -> definir la regla per defecte
+		· -F -> fa un flush
+		· -i interface -> interface d'entrada
+		· -o interface -> interface sortida
+		· -s -> origen
+		· -d -> destino
+		
+IPTABLES:		
+		
+	1. gedit /etc/script1.sh
+	
+		#!/bin/bash
+		iptables -P INPUT ACCEPT
+		iptables -P OUTPUT ACCEPT
+		iptables -P FORWARD ACCEPT
+		
+		iptables -F
+		
+	2. bash /etc/script1.sh
+	
+	3. gedit /etc/script1.sh
+	
+		#!/bin/bash
+		iptables -P INPUT ACCEPT
+		iptables -P OUTPUT ACCEPT
+		iptables -P FORWARD ACCEPT
+		
+		iptables -F
+		
+		iptables -A INPUT -j DROP
+		
+	 4. bash /etc/script1.sh
+	 
+	 
+	 5. gedit /etc/script1.sh
+	
+		#!/bin/bash
+		iptables -P INPUT ACCEPT
+		iptables -P OUTPUT ACCEPT
+		iptables -P FORWARD ACCEPT
+		
+		iptables -F
+		
+		iptables -A INPUT -s 10.150.0.158 -j DROP
+		
+	6. Añadir adaptador de red a la maquina virtual en bridged 
+		· ifconfig ens33 192.168.0.31
+		· ifconfig ens38 10.150.18.158
+		
+	7. Cambiar gateway maquina real: -> ip maquina virtual 
+	
+	8. echo 1 > /proc/sys/net/ipv4/ip_forward -> la maquina de ubuntu es transforma en router
+	
+	9. gedit /etc/script1.sh
+		iptables -t nat -A PREROUTING -p tcp --dport 211 -j DNAT --to 192.168.0.202:21 
+		tratar a la tabla nat para redirigir los paquetes
+		
+		Per comprobaro et connectes al ftp i després fas un netstat -ano a la maquina real (prerouting1.png)
+		
+	10. Per borrar les regles de nat
+		iptables -t nat -F
+	
+	11. gedit /etc/script1.sh
+		iptables -t nat -A POSTROUTING -o ens33 -j MASQUERADE		
+		#capar la ip de la ens33 para cuando me conecte a otra maquina y esta haga netstat se muestre la otra interficie
+		
+RAIDS: (ATENCIO AL REINICIAR LA MAQUINA CAMBIA EL NOM DEL RAID, sera 127)
+		*No funciona = Per solucionar-ho -> gedit /etc/mdadm/mdadm.conf -> borrar el metadata=1.2*
+	
+	1. Crear dos discos scis d'un 1gb (imatge2.png)
+	
+	2. apt-get install mdadm
+	
+	3. lsblk -> mirar els discos durs
+	[
+		4. fdisk /dev/sdb
+			4.1 p (no se para que sirve)
+			4.2 n -> crear la particio sobre el disc
+				4.2.1 p -> primaria
+				4.2.2 1
+				4.2.3 enter
+				4.2.4 +100M
+		
+		5. gdisk /dev/sdb -> una altre eina per fer particions
+	]
+	6. Creació del raid	
+		6.1 mdadm --create --verbose /dev/md0 --level=1 --raid-device=2 /dev/sdb /dev/sdc
+		6.2 y
+		6.3 mdadm --detail --scan (per veure el arraid) >> /etc/mdadm/mdadm.conf
+		
+	7 Crear sistema de fitxers
+		7.1 mkfs.ext4 /dev/md0
+	
+	8. Crear punt de muntatge
+		8.1 mkdir /mnt/raid
+		8.2 mount /dev/md0 /mnt/raid
+		8.3 df (veure els discos sistema de fitxers)
+		8.4 ls -la > /mnt/raid/f (nose para que es esto)
+	
+	9. Simula un error (per veure si pot recuperar informacio) 
+		9.1 mdadm --set-faulty /dev/md0 /dev/sdc
+		9.2 mdadm -D /dev/md0 -> veure el raid
+		9.3 mdadm --manage /dev/md0 -r /dev/sdc (treure un disc del raid)
+		9.4 mdadm --manage /dev/md0 -a /dev/sdc (afegir un disc al raid)
+		
+	10. /etc/fstab -> Lo que esta escrit en aquest arxiu es monta només iniciar el sistema
+		10.1 blkid /dev/md127 (saber uuid)
+		10.2 copiar el uuid
+		10.3 gedit /etc/fstab
+		10.4 imagen10_4.png
+			 Explicacio camps: 1.El que vull montar, 2.on ho vull montar, 3.tipus filesystem, 4. opcions que tindra el disc, 5. dump (0), 6. pass (0)
+		10.5 reboot
+		[
+			10.6 mount -a -> Remontar totes les entrades del /etc/fstab
+			10.7 mount -> mostrar el que esta montat al sistema || cat /proc/self/mounts
+			
+		]
+		10.8 df -> veure quan espai ocupen els discos
+		
+		
+	11. Eliminar raid
+		11.1 umount /dev/md127
+		11.2 mdadm --stop /dev/md127
+		11.3 mdadm --zero-superblock /dev/sdb
+		11.4 mdadm --zero-superblock /dev/sdc
