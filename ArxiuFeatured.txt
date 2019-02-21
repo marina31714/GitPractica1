@@ -1,3 +1,0 @@
-//Afegir arxiu de la nova funcionalitat.
-
-Continuar amb la funcionalitat!!
